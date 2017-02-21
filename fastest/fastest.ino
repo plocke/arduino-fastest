@@ -1,9 +1,9 @@
 #include <Arduino.h>
-#include <fade.h>
-#include <serialdebug.h>
 #include <LiquidCrystal.h>
-#include <lcdhelper.h>
-#include <shiftregister.h>
+#include "fade.h"
+#include "serialdebug.h"
+#include "lcdhelper.h"
+#include "shiftregister.h"
 
 const String codeversion = "1.0";
 
@@ -102,7 +102,7 @@ void setup() {
 }
 
 void doLightAndSoundCheckBootRoutine(){
-  setBothLCDLines("Hardware check","code version "+codeversion,lcd );
+  setBothLCDLines("Fastest v"+codeversion,"github/plocke"+codeversion,lcd );
   for (int i = 0; i < NUM_USER_BUTTONS; i++) {
      turnOnWinLightForPlayer(i);
      delay(250);
