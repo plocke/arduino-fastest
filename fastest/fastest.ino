@@ -102,7 +102,7 @@ void setup() {
 }
 
 void doLightAndSoundCheckBootRoutine(){
-  setBothLCDLines("Fastest v"+codeversion,"github/plocke"+codeversion,lcd );
+  setBothLCDLines("Fastest v"+codeversion,"github / plocke",lcd );
   for (int i = 0; i < NUM_USER_BUTTONS; i++) {
      turnOnWinLightForPlayer(i);
      delay(250);
