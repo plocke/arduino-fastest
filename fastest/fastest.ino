@@ -5,7 +5,7 @@
 #include "lcdhelper.h"
 #include "shiftregister.h"
 
-const String codeversion = "1.0";
+const String codeversion = "1.1";
 
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
@@ -25,6 +25,9 @@ const int STATE_GAMEOVER = 60;
 
 //go trigger setting
 enum GoTrigger {LIGHT,SOUND,BOTH};
+
+//records
+enum Records {NONE, SINCEBOOT};
 
 //debug flag
 const boolean DEBUG_SERIAL = false;
@@ -46,9 +49,12 @@ const int PIN_GO_LED= 9;
 const int PIN_SPEAKER = 7;
 
 
-//global  variables
+//variables that persist across games
 GoTrigger goTriggerEnum = BOTH;
-long lastPressTimeMillisForTriggerChange = 0;
+Records currentRecordToShow = NONE;
+long lastTimeMillisForDisplayChangeRotation = 0;
+long fastestTimeSinceBoot = -1;
+int playerPositionHoldingFastestTime = -1;
 
 //current state we are in
 int state = STATE_BOOTED_UP;
@@ -67,9 +73,13 @@ long winnerTimeMillis = 0;
 long gameOverTimeMillis = 0;
 
 
+
+
 //timing constants
 const long MAX_WAIT_FOR_WINNERS_MILLIS = 3000;
 const long SHOW_EACH_USER_SCORE_TIME_MILLIS = 2000;
+const long SHOW_EACH_RECORD_TIME_MILLIS = 2000;
+
 //const long SHOW_SCORES_GAMEOVER_TIME = 4000;
 
 
@@ -179,6 +189,7 @@ void loop() {
       // otherwise check for trigger toggle
 
       checkAdvanceTriggerType();
+      showScoreRecords();
       if (checkForStartButton()) {
         transitionToState(STATE_COUNTDOWN_TO_GO);
       }
@@ -222,7 +233,7 @@ void transitionToState(int newState) {
     case STATE_WAITING_TO_START:
       turnOffAllPlayerLights();
       debugSerialPrintln("Press start button or go trigger toggle");
-      setBothLCDLines("Press start --->", "<--- Signal type", lcd);
+      showDefaultStartInstructions();
       break;
     case STATE_COUNTDOWN_TO_GO:
       clearGameVars();
@@ -253,11 +264,36 @@ void transitionToState(int newState) {
 
 }
 
+void showDefaultStartInstructions() {
+  setBothLCDLines("Press start --->", "<--- Signal type", lcd);
+}
+
+void showScoreRecords() {
+  if ( (millis() - lastTimeMillisForDisplayChangeRotation) > SHOW_EACH_RECORD_TIME_MILLIS) {
+    lastTimeMillisForDisplayChangeRotation = millis();
+    switch (currentRecordToShow) {
+      case NONE:
+        showDefaultStartInstructions();
+        currentRecordToShow = SINCEBOOT;
+        break;
+      case SINCEBOOT:
+        if (fastestTimeSinceBoot < 0) {
+          setBottomLine("No Record Yet   ", lcd);
+        } else {
+          setBothLCDLines("Best since boot:",getPlayerColourNameFromPosition(playerPositionHoldingFastestTime)+": "+fastestTimeSinceBoot+"ms" ,  lcd);
+        }
+        currentRecordToShow = NONE;
+        break;
+    }
+  }
+}
+
+
 void checkAdvanceTriggerType()
 {
-  if(digitalRead(PIN_GOTRIGGERCYCLE) == HIGH && millis() > (lastPressTimeMillisForTriggerChange + 500))
+  if(digitalRead(PIN_GOTRIGGERCYCLE) == HIGH && millis() > (lastTimeMillisForDisplayChangeRotation + 500))
   {
-    lastPressTimeMillisForTriggerChange = millis();
+    lastTimeMillisForDisplayChangeRotation = millis();
     debugSerialPrintStringAndNumber("Trigger type changing from ",goTriggerEnum);
     lcd.clear();
     setBottomLine("Press start --->", lcd);
@@ -319,10 +355,16 @@ void checkForWinnersUpdateStateIfAllUsersFinish() {
         {
           winnerTimeMillis = millis();
           long winnerReactionTime = winnerTimeMillis - goTimeMillis;
-          setBothLCDLines(getPlayerColourNameFromPosition(pressedButton)+" Wins!", (String)winnerReactionTime+"ms",  lcd);
+          boolean newRecordSinceBoot = checkAndUpdateFastestTimesAcrossGames(pressedButton, winnerReactionTime);
+          String newRecord = "";
+          if (newRecordSinceBoot) {
+            newRecord = "New Best!";
+          }
+          setBothLCDLines(getPlayerColourNameFromPosition(pressedButton)+" Wins!", (String)winnerReactionTime+"ms "+newRecord,  lcd);
           debugSerialPrintStringAndNumber("Winner!  Button ",pressedButton);
           debugSerialPrintStringAndNumber("Time after signal: ",winnerReactionTime);
           cumulativeScores[i]++;
+
           //turn off go signals
           turnOffGoSignals();
           turnOnWinLightForPlayer(pressedButton);
@@ -361,5 +403,15 @@ String getPlayerColourNameFromPosition(int position) {
     case 1: return "Green"; break;
     case 2: return "Red"; break;
     case 3: return "Yellow"; break;
+  }
+}
+
+boolean checkAndUpdateFastestTimesAcrossGames(int pressedButton, long winnerReactionTimeMillis) {
+  if ( (fastestTimeSinceBoot < 0) || (winnerReactionTimeMillis < fastestTimeSinceBoot) ) {
+    fastestTimeSinceBoot = winnerReactionTimeMillis;
+    playerPositionHoldingFastestTime = pressedButton;
+    return true;
+  } else {
+    return false;
   }
 }
