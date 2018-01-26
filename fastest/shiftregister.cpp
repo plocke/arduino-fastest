@@ -22,6 +22,11 @@ void turnOffAllPlayerLights() {
 
 }
 
+void turnOnAllPlayerLights() {
+  writeTo74HC595(B11110000);
+
+}
+
 void turnOnWinLightForPlayer(int playerNumber) {
   switch (playerNumber) {
     case 0:

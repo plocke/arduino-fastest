@@ -15,42 +15,7 @@ void setNewRandomStartDelay()
   debugSerialPrintStringAndNumber("start delay: ", randomizedStartDelayInMillis);
 }
 
-void doLightAndSoundCheckBootRoutine(){
-  setBothLCDLines("Fastest v"+codeversion,"github / plocke",lcd );
-  for (int i = 0; i < NUM_USER_BUTTONS; i++) {
-     turnOnWinLightForPlayer(i);
-     delay(250);
-  }
-  turnOffAllPlayerLights();
-  digitalWrite(PIN_WAITFORIT_LED, HIGH);
-  delay(250);
-  digitalWrite(PIN_WAITFORIT_LED, LOW);
-  digitalWrite(PIN_GO_LED, HIGH);
-  delay(250);
-  digitalWrite(PIN_GO_LED, LOW);
-  tone(PIN_SPEAKER, NOTE_FREQUENCY);
-  delay(125);
-  noTone(PIN_SPEAKER);
 
-
-}
-
-
-
-
-boolean checkForStartButton()
-{
-  return digitalRead(PIN_STARTBUTTON) == HIGH;
-}
-
-
-
-void readInputPins() {
- userButtonReadPins[0] = digitalRead(PIN_USER1BUTTON);
- userButtonReadPins[1] = digitalRead(PIN_USER2BUTTON);
- userButtonReadPins[2] = digitalRead(PIN_USER3BUTTON);
- userButtonReadPins[3] = digitalRead(PIN_USER4BUTTON);
-}
 
 void clearGameVars() {
 
@@ -87,7 +52,7 @@ void loop_reaction() {
       //if start pressed transitionToState
       // otherwise check for trigger toggle
 
-      checkAdvanceTriggerType();
+      //checkAdvanceTriggerType();
       showScoreRecords();
       if (checkForStartButton()) {
         transitionToState(STATE_COUNTDOWN_TO_GO);
@@ -143,7 +108,7 @@ void transitionToState(int newState) {
       setBothLCDLines("Wait for it . . .", " ", lcd);
       break;
     case STATE_WAITING_FOR_WINNERS:
-    setBothLCDLines("Go ! ! !", " ", lcd);
+      setBothLCDLines("Go ! ! !", " ", lcd);
       //write to LCD
       turnOffFadeLED(PIN_WAITFORIT_LED);
       if (goTriggerEnum == BOTH || goTriggerEnum == LIGHT) {
@@ -165,9 +130,7 @@ void transitionToState(int newState) {
 
 }
 
-void showDefaultStartInstructions() {
-  setBothLCDLines("Press start --->", "<--- Signal type", lcd);
-}
+
 
 void showScoreRecords() {
   if ( (millis() - lastTimeMillisForDisplayChangeRotation) > SHOW_EACH_RECORD_TIME_MILLIS) {
@@ -199,7 +162,7 @@ void showScoreRecords() {
 }
 
 
-void checkAdvanceTriggerType()
+void checkAdvanceTriggerType() //todo: make this work on not the game cycle button
 {
   if(digitalRead(PIN_GOTRIGGERCYCLE) == HIGH && millis() > (lastTimeMillisForDisplayChangeRotation + 500))
   {
@@ -308,14 +271,6 @@ void turnOffGoSignals(){
   digitalWrite(PIN_GO_LED, LOW);
 }
 
-String getPlayerColourNameFromPosition(int position) {
-  switch (position) {
-    case 0: return "Blue"; break;
-    case 1: return "Green"; break;
-    case 2: return "Red"; break;
-    case 3: return "Yellow"; break;
-  }
-}
 
 boolean checkAndUpdateFastestTimesAcrossGames(int pressedButton, long winnerReactionTimeMillis) {
   if ( (fastestTimeSinceBoot < 0) || (winnerReactionTimeMillis < fastestTimeSinceBoot) ) {

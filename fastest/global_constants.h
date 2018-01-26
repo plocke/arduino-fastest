@@ -14,6 +14,8 @@ extern int userButtonReadPins[NUM_USER_BUTTONS];
 
 const int NOTE_FREQUENCY = 262;
 
+const int SUCCESS_TONE_LENGTH_MS = 350;
+
 //states
 const int STATE_BOOTED_UP = 0;
 const int STATE_WAITING_TO_START = 10;
