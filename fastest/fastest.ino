@@ -4,8 +4,9 @@
 #include "serialdebug.h"
 #include "lcdhelper.h"
 #include "shiftregister.h"
+#include "eepromhelper.h"
 
-const String codeversion = "1.1";
+const String codeversion = "1.2";
 
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
@@ -27,10 +28,10 @@ const int STATE_GAMEOVER = 60;
 enum GoTrigger {LIGHT,SOUND,BOTH};
 
 //records
-enum Records {NONE, SINCEBOOT};
+enum Records {NONE, SINCEBOOT, EEPROMSAVE};
 
 //debug flag
-const boolean DEBUG_SERIAL = false;
+const boolean DEBUG_SERIAL = true;
 
 
 //analog user button inputs.  we are just using them for digital reads
@@ -83,7 +84,14 @@ const long SHOW_EACH_RECORD_TIME_MILLIS = 2000;
 //const long SHOW_SCORES_GAMEOVER_TIME = 4000;
 
 
-//
+//eeprom saved values
+struct config_t
+{
+    int fastestTimeInEeprom;
+    int longestChainInEeprom;
+} eepromsave;
+
+const int EEPROM_SAVELOCATION = 0;
 
 void setup() {
   lcd.begin(16, 2);
@@ -105,6 +113,9 @@ void setup() {
   turnOffAllPlayerLights();
   pinMode(PIN_STARTBUTTON, INPUT);
   pinMode(PIN_GOTRIGGERCYCLE, INPUT);
+
+  EEPROM_readAnything(EEPROM_SAVELOCATION, eepromsave);
+  debugSerialPrintStringAndNumber("EEprom saved record: ",eepromsave.fastestTimeInEeprom);
 
   doLightAndSoundCheckBootRoutine();
   pinMode (PIN_SPEAKER, INPUT); //weird workaround for buzzing issue, only set to output right before calling tone()
@@ -207,6 +218,8 @@ void loop() {
       if ((millis() - goTimeMillis) > MAX_WAIT_FOR_WINNERS_MILLIS) //we are done waiting
       {
         debugSerialPrintln("Done waiting for people to finish.  Game over.");
+        debugSerialPrintStringAndNumber("Record since boot: ",fastestTimeSinceBoot);
+        debugSerialPrintStringAndNumber("Fastest in eeprom: ",eepromsave.fastestTimeInEeprom);
         transitionToState(STATE_GAMEOVER);
       }
       break;
@@ -274,7 +287,11 @@ void showScoreRecords() {
     switch (currentRecordToShow) {
       case NONE:
         showDefaultStartInstructions();
-        currentRecordToShow = SINCEBOOT;
+        if (fastestTimeSinceBoot < 0) {
+          currentRecordToShow = EEPROMSAVE;
+        } else {
+          currentRecordToShow = SINCEBOOT;
+        }
         break;
       case SINCEBOOT:
         if (fastestTimeSinceBoot < 0) {
@@ -282,8 +299,13 @@ void showScoreRecords() {
         } else {
           setBothLCDLines("Best since boot:",getPlayerColourNameFromPosition(playerPositionHoldingFastestTime)+": "+fastestTimeSinceBoot+"ms" ,  lcd);
         }
-        currentRecordToShow = NONE;
+        currentRecordToShow = EEPROMSAVE;
         break;
+      case EEPROMSAVE:
+        String bestEver = String(eepromsave.fastestTimeInEeprom);
+        setBothLCDLines("Best time ever:",bestEver+"ms", lcd);
+        currentRecordToShow = NONE;
+      break;
     }
   }
 }
@@ -359,6 +381,7 @@ void checkForWinnersUpdateStateIfAllUsersFinish() {
           String newRecord = "";
           if (newRecordSinceBoot) {
             newRecord = "New Best!";
+            checkAndUpdateFastestTimesInEEPROM(pressedButton, winnerReactionTime);
           }
           setBothLCDLines(getPlayerColourNameFromPosition(pressedButton)+" Wins!", (String)winnerReactionTime+"ms "+newRecord,  lcd);
           debugSerialPrintStringAndNumber("Winner!  Button ",pressedButton);
@@ -410,6 +433,17 @@ boolean checkAndUpdateFastestTimesAcrossGames(int pressedButton, long winnerReac
   if ( (fastestTimeSinceBoot < 0) || (winnerReactionTimeMillis < fastestTimeSinceBoot) ) {
     fastestTimeSinceBoot = winnerReactionTimeMillis;
     playerPositionHoldingFastestTime = pressedButton;
+    return true;
+  } else {
+    return false;
+  }
+}
+
+boolean checkAndUpdateFastestTimesInEEPROM(int pressedButton, long winnerReactionTimeMillis) {
+  if ( (eepromsave.fastestTimeInEeprom < 0) || (winnerReactionTimeMillis < eepromsave.fastestTimeInEeprom) ) {
+    eepromsave.fastestTimeInEeprom = int(winnerReactionTimeMillis);
+    EEPROM_writeAnything(EEPROM_SAVELOCATION, eepromsave);
+    debugSerialPrintStringAndNumber("New fastest time saved to eeprom: ",eepromsave.fastestTimeInEeprom);
     return true;
   } else {
     return false;
