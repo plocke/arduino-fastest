@@ -1,125 +1,18 @@
 #include <Arduino.h>
-#include <LiquidCrystal.h>
-#include "fade.h"
-#include "serialdebug.h"
-#include "lcdhelper.h"
-#include "shiftregister.h"
-#include "eepromhelper.h"
+#include <global_constants.h>
+#include <global_functions.h>
+#include <lcdhelper.h>
+#include <serialdebug.h>
+#include <shiftregister.h>
+#include <game_reaction.h>
+#include <eepromhelper.h>
+#include <fade.h>
 
-const String codeversion = "1.2";
-
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
-
-#define NUM_USER_BUTTONS 4
-
-int userButtonReadPins[NUM_USER_BUTTONS];
-
-const int NOTE_FREQUENCY = 262;
-
-//states
-const int STATE_BOOTED_UP = 0;
-const int STATE_WAITING_TO_START = 10;
-const int STATE_COUNTDOWN_TO_GO = 20;
-const int STATE_DISQUALIFIED_PLAYER = 30;
-const int STATE_WAITING_FOR_WINNERS = 40;
-const int STATE_GAMEOVER = 60;
-
-//go trigger setting
-enum GoTrigger {LIGHT,SOUND,BOTH};
-
-//records
-enum Records {NONE, SINCEBOOT, EEPROMSAVE};
-
-//debug flag
-const boolean DEBUG_SERIAL = true;
-
-
-//analog user button inputs.  we are just using them for digital reads
-const int PIN_USER1BUTTON = A0;
-const int PIN_USER2BUTTON = A1;
-const int PIN_USER3BUTTON = A2;
-const int PIN_USER4BUTTON = A3;
-
-//digital input buttons/switches
-const int PIN_STARTBUTTON = A5;
-const int PIN_GOTRIGGERCYCLE = A4;
-
-//output pins
-const int PIN_WAITFORIT_LED= 6;
-const int PIN_GO_LED= 9;
-const int PIN_SPEAKER = 7;
-
-
-//variables that persist across games
-GoTrigger goTriggerEnum = BOTH;
-Records currentRecordToShow = NONE;
-long lastTimeMillisForDisplayChangeRotation = 0;
-long fastestTimeSinceBoot = -1;
-int playerPositionHoldingFastestTime = -1;
-
-//current state we are in
-int state = STATE_BOOTED_UP;
-
-//per game variables for timers and timing events
-boolean disqualifiedUsers[NUM_USER_BUTTONS];
-long winningUserTimes[NUM_USER_BUTTONS] = {0,0,0,0};
-int cumulativeScores[NUM_USER_BUTTONS] = {0,0,0,0};
-int orderedRunnerUpTimesBehindWinner[NUM_USER_BUTTONS-1] = {0,0,0};
-String orderedRunnerUpNames[NUM_USER_BUTTONS-1] = {"","",""};
-int runnerUpPosition = 0;
-int randomizedStartDelayInMillis = 0;
-int numberOfFinishers = 0;
-long goTimeMillis = 0;
-long winnerTimeMillis = 0;
-long gameOverTimeMillis = 0;
-
-
-
-
-//timing constants
-const long MAX_WAIT_FOR_WINNERS_MILLIS = 3000;
-const long SHOW_EACH_USER_SCORE_TIME_MILLIS = 2000;
-const long SHOW_EACH_RECORD_TIME_MILLIS = 2000;
-
-//const long SHOW_SCORES_GAMEOVER_TIME = 4000;
-
-
-//eeprom saved values
-struct config_t
+void setNewRandomStartDelay()
 {
-    int fastestTimeInEeprom;
-    int longestChainInEeprom;
-} eepromsave;
-
-const int EEPROM_SAVELOCATION = 0;
-
-void setup() {
-  lcd.begin(16, 2);
-
-  if (DEBUG_SERIAL) {
-    Serial.begin(9600);
-  }
-
-  //output pins, all our digital pins are output other than 0 and 1
-  for (int i = 2; i<= 13; i++) {
-    pinMode(i, OUTPUT);
-  }
-
-//input pins
-  for (int i = 0; i < NUM_USER_BUTTONS; i++) {
-     pinMode(userButtonReadPins[i], INPUT);
-  }
-
-  turnOffAllPlayerLights();
-  pinMode(PIN_STARTBUTTON, INPUT);
-  pinMode(PIN_GOTRIGGERCYCLE, INPUT);
-
-  EEPROM_readAnything(EEPROM_SAVELOCATION, eepromsave);
-  debugSerialPrintStringAndNumber("EEprom saved record: ",eepromsave.fastestTimeInEeprom);
-
-  doLightAndSoundCheckBootRoutine();
-  pinMode (PIN_SPEAKER, INPUT); //weird workaround for buzzing issue, only set to output right before calling tone()
-  transitionToState(STATE_WAITING_TO_START);
+  randomSeed(millis()+analogRead(A5));
+  randomizedStartDelayInMillis = random(3000, 10000);
+  debugSerialPrintStringAndNumber("start delay: ", randomizedStartDelayInMillis);
 }
 
 void doLightAndSoundCheckBootRoutine(){
@@ -143,12 +36,7 @@ void doLightAndSoundCheckBootRoutine(){
 }
 
 
-void setNewRandomStartDelay()
-{
-  randomSeed(millis()+analogRead(A5));
-  randomizedStartDelayInMillis = random(3000, 10000);
-  debugSerialPrintStringAndNumber("start delay: ", randomizedStartDelayInMillis);
-}
+
 
 boolean checkForStartButton()
 {
@@ -187,7 +75,7 @@ void clearGameVars() {
    turnOffAllPlayerLights();
 }
 
-void loop() {
+void loop_reaction() {
   //check for inputs that apply to any state
 
   //new game pressed
@@ -440,7 +328,7 @@ boolean checkAndUpdateFastestTimesAcrossGames(int pressedButton, long winnerReac
 }
 
 boolean checkAndUpdateFastestTimesInEEPROM(int pressedButton, long winnerReactionTimeMillis) {
-  if ( (eepromsave.fastestTimeInEeprom < 0) || (winnerReactionTimeMillis < eepromsave.fastestTimeInEeprom) ) {
+  if ( (eepromsave.fastestTimeInEeprom <= 0) || (winnerReactionTimeMillis < eepromsave.fastestTimeInEeprom) ) {
     eepromsave.fastestTimeInEeprom = int(winnerReactionTimeMillis);
     EEPROM_writeAnything(EEPROM_SAVELOCATION, eepromsave);
     debugSerialPrintStringAndNumber("New fastest time saved to eeprom: ",eepromsave.fastestTimeInEeprom);
