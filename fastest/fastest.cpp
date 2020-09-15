@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include <LiquidCrystal.h>
 #include "fade.h"
 #include "serialdebug.h"

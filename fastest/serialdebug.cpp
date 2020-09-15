@@ -1,6 +1,7 @@
 #include <Arduino.h>
+#include <global_constants.h>
 
-const boolean DEBUG_SERIAL = true;
+//const boolean DEBUG_SERIAL = true;
 
 void debugSerialPrintHelper(String stringToPrint, boolean newlineAfter) {
   if (DEBUG_SERIAL)

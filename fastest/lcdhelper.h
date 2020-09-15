@@ -1,6 +1,6 @@
 #ifndef lcdhelper_h
 #define lcdhelper_h
-
+#include <Wire.h>
 #include <LiquidCrystal.h>
 
 void setTopLine(String line, LiquidCrystal lcd);

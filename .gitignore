@@ -4,3 +4,5 @@
 .piolibdeps
 .DS_Store
 /lib
+.pio
+.vscode
